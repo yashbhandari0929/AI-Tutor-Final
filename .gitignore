@@ -1,0 +1,25 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Environment files
+backend/.env
+frontend/.env.local
+
+# Database
+*.db
+backend/ai_tutor.db
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+backup_secrets/
