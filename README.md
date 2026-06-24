@@ -272,5 +272,5 @@ The result is a complete AI learning ecosystem designed to help students learn s
 ---
 
 <p align="center">
-  Built with ❤️ using FastAPI, Next.js, Gemini AI & Modern Web Technologies
+  Built with FastAPI, Next.js, TypeScript, SQLAlchemy, and Gemini AI to deliver a scalable AI-powered learning platform featuring personalized tutoring, adaptive study plans, intelligent document understanding, mastery tracking, and interview preparation.
 </p>
