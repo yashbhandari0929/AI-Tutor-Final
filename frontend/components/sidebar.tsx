@@ -1,48 +1,29 @@
-// components/Sidebar.tsx
+﻿// components/Sidebar.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutGrid,
-  FileText,
-  PenLine,
   BarChart3,
-  MessageSquare,
-  PlayCircle,
-  Brain,
-  User,
+  BookOpen,
   BriefcaseBusiness,
+  CalendarCheck,
+  FileText,
+  LayoutGrid,
+  MessageSquare,
+  PenLine,
+  User,
 } from "lucide-react";
 
-// ── Adjust these hrefs to match your actual app/page.tsx file paths ──────────
-// Your old sidebar used /notes, /quiz, /analytics etc. (not /dashboard/notes).
-// The two columns below let you see both at a glance so you can sync them with
-// your folder structure:
-//
-//   Old (working)            → kept here
-//   /dashboard               → /dashboard        (same — root of the app)
-//   /notes                   → /notes
-//   /quiz                    → /quiz
-//   /analytics               → /analytics
-//   /chat                    → /chat             (was "AI Tutor")
-//   (new) /video-tutor
-//   (new) /flashcards
-//   /profile                 → /profile
-//
-// If your pages live under /dashboard/* instead, swap the hrefs below.
-// ─────────────────────────────────────────────────────────────────────────────
-
 const NAV_ITEMS = [
-  { label: "Dashboard",   href: "/dashboard",    icon: LayoutGrid    },
-  { label: "Notes",       href: "/notes",         icon: FileText      },
-  { label: "Quiz",        href: "/quiz",          icon: PenLine       },
-  { label: "Analytics",   href: "/analytics",     icon: BarChart3     },
-  { label: "Chat",        href: "/chat",          icon: MessageSquare },
-  { label: "Interview Prep", href: "/interview",  icon: BriefcaseBusiness },
-  { label: "Video Tutor", href: "/video-tutor",   icon: PlayCircle    },
-  { label: "Flashcards",  href: "/flashcards",    icon: Brain         },
-  { label: "Profile",     href: "/profile",       icon: User          },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
+  { label: "Chat", href: "/chat", icon: MessageSquare },
+  { label: "Notes", href: "/notes", icon: FileText },
+  { label: "Quiz", href: "/quiz", icon: PenLine },
+  { label: "Study Plan", href: "/study-plan", icon: CalendarCheck },
+  { label: "Resume Interview", href: "/resume-interview", icon: BriefcaseBusiness },
+  { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  { label: "Profile", href: "/profile", icon: User },
 ];
 
 export default function Sidebar() {
@@ -69,7 +50,7 @@ export default function Sidebar() {
             }`}
           >
             <Icon size={17} strokeWidth={1.75} />
-            {label}
+            <span className="truncate">{label}</span>
           </Link>
         ))}
       </nav>

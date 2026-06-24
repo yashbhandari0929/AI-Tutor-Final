@@ -161,30 +161,19 @@ def _topic_mastery(
     topic: str,
     results: list[QuizResult],
     notes: list[Note],
-) -> TopicMastery:
+) -> Optional[TopicMastery]:
     topic_results = [r for r in results if (r.topic or "").lower() == topic.lower()]
     topic_notes   = [n for n in notes   if (n.topic or "").lower() == topic.lower()]
 
     if not topic_results:
-        # Only notes, no quiz data yet
-        return TopicMastery(
-            topic=topic,
-            mastery_score=5.0,
-            quiz_accuracy=0.0,
-            consistency_score=0.0,
-            completion_rate=0.0,
-            time_score=_time_score(len(topic_notes) * 10),
-            attempts=0,
-            last_seen=max((n.created_at.date() for n in topic_notes), default=None),
-            trend="new",
-        )
+        return None
 
     accuracies   = [r.accuracy for r in topic_results if r.accuracy is not None]
     avg_acc      = sum(accuracies) / len(accuracies) if accuracies else 0.0
     attempt_dates = [r.created_at.date() for r in topic_results]
     consistency  = _consistency_score(attempt_dates)
     completion   = _completion_rate(len(topic_results))
-    est_minutes  = len(topic_results) * ACTIVITY_MINUTES["quiz"] + len(topic_notes) * ACTIVITY_MINUTES["notes"]
+    est_minutes  = len(topic_results) * ACTIVITY_MINUTES["quiz"]
     t_score      = _time_score(est_minutes)
 
     mastery = (
@@ -477,12 +466,10 @@ def build_study_plan(db: Session, student: StudentProfile) -> AdaptiveStudyPlan:
     for r in all_results:
         if r.topic:
             all_topic_names.add(r.topic)
-    for n in all_notes:
-        if n.topic:
-            all_topic_names.add(n.topic)
-
     mastery_list: list[TopicMastery] = [
-        _topic_mastery(t, all_results, all_notes) for t in sorted(all_topic_names)
+        mastery
+        for t in sorted(all_topic_names)
+        if (mastery := _topic_mastery(t, all_results, all_notes)) is not None
     ]
     mastery_list.sort(key=lambda m: m.mastery_score)
 

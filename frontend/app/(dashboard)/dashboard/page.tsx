@@ -1,4 +1,4 @@
-// LOCATION: app/(dashboard)/dashboard/page.tsx
+﻿// LOCATION: app/(dashboard)/dashboard/page.tsx
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -8,20 +8,27 @@ import {
   getDashboardHeatmap,
   getProfileInfo,
   getRecommendations,
+  getAnalyticsSummary,
   type DashboardStudyPlan,
   type DashboardHeatmap,
   type RecommendationsResponse,
   type RecommendationPriority,
 } from "@/lib/api";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ProfileSnippet {
   name: string;
   email: string;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+interface DashboardAnalyticsSummary {
+  total_quizzes: number;
+  average_accuracy: number;
+  documents_uploaded: number;
+}
+
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // 5-step emerald scale, evenly spaced so the legend and grid always agree.
 function getCellIntensity(count: number): string {
@@ -32,11 +39,11 @@ function getCellIntensity(count: number): string {
   return                  "bg-emerald-300 border border-emerald-200/60 shadow-[0_0_6px_rgba(110,231,183,0.45)]";
 }
 
-// Build a full-year (Jan 1 → Dec 31) grid from the activity map, grouped by
+// Build a full-year (Jan 1 â†’ Dec 31) grid from the activity map, grouped by
 // week. Each week is a column of 7 day cells, GitHub-style. The first and
 // last columns are padded with empty (non-rendering) slots so every column
 // still has 7 rows, but those padding slots carry no date and are never
-// considered when building month labels or handling hover/click — this is
+// considered when building month labels or handling hover/click â€” this is
 // what guarantees the year boundary can never produce a duplicate or
 // colliding month label.
 function buildWeekColumns(
@@ -46,7 +53,7 @@ function buildWeekColumns(
   const jan1 = new Date(year, 0, 1);
   const dec31 = new Date(year, 11, 31);
 
-  const startDow = (jan1.getDay() + 6) % 7; // Mon=0 … Sun=6
+  const startDow = (jan1.getDay() + 6) % 7; // Mon=0 â€¦ Sun=6
   const gridStart = new Date(jan1);
   gridStart.setDate(jan1.getDate() - startDow);
 
@@ -65,7 +72,7 @@ function buildWeekColumns(
       const cell = new Date(gridStart);
       cell.setDate(gridStart.getDate() + w * 7 + d);
       if (cell.getFullYear() !== year) {
-        col.push(null); // padding slot — never labeled, never interactive
+        col.push(null); // padding slot â€” never labeled, never interactive
         continue;
       }
       const key = cell.toISOString().slice(0, 10);
@@ -80,7 +87,7 @@ const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct
 
 // Label the first column in which each month appears. Padding columns
 // (all-null, from the partial week before Jan 1 or after Dec 31) are
-// skipped outright, so the year boundary can never emit a label at all —
+// skipped outright, so the year boundary can never emit a label at all â€”
 // there is nothing left for "Dec" to attach to once December's real cells
 // are exhausted.
 function monthLabelsRow(
@@ -120,12 +127,12 @@ function getGreeting(): string {
   return "Good Evening";
 }
 
-// ── Layout constants (kept in one place so grid math & label math agree) ────
+// â”€â”€ Layout constants (kept in one place so grid math & label math agree) â”€â”€â”€â”€
 const CELL = 15;      // cell width/height in px
 const GAP = 4;         // gap between cells in px
 const COL_STEP = CELL + GAP; // px advance per week column
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function Dashboard() {
   useAuth();
@@ -134,6 +141,7 @@ export default function Dashboard() {
   const [heatmap, setHeatmap] = useState<DashboardHeatmap   | null>(null);
   const [profile, setProfile] = useState<ProfileSnippet     | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationsResponse | null>(null);
+  const [analytics, setAnalytics] = useState<DashboardAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(false);
   const [hoveredCell, setHoveredCell] = useState<{ date: string; count: number } | null>(null);
@@ -142,16 +150,18 @@ export default function Dashboard() {
     setLoading(true);
     setError(false);
     try {
-      const [planData, heatData, profileData, recommendationData] = await Promise.all([
+      const [planData, heatData, profileData, recommendationData, analyticsData] = await Promise.all([
         getDashboardStudyPlan(),
         getDashboardHeatmap(),
         getProfileInfo(),
         getRecommendations(),
+        getAnalyticsSummary(),
       ]);
       setPlan(planData);
       setHeatmap(heatData);
       setRecommendations(recommendationData);
-      // Profile is supplementary (greeting only) — a missing/odd shape here
+      setAnalytics(analyticsData);
+      // Profile is supplementary (greeting only) â€” a missing/odd shape here
       // should never block the rest of the dashboard from rendering.
       if (profileData && !profileData.detail) {
         setProfile({ name: profileData.name ?? "", email: profileData.email ?? "" });
@@ -164,24 +174,24 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Fetch once on mount only. No polling, no refetch-on-focus — the
+  // Fetch once on mount only. No polling, no refetch-on-focus â€” the
   // dashboard loads once and stays put until the page is reloaded.
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // â”€â”€ Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (loading) return (
     <div className="min-h-screen bg-[#060d1f] p-8 flex items-center gap-3 text-slate-400 text-sm">
       <svg className="animate-spin h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path  className="opacity-75"  fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
       </svg>
-      Loading dashboard…
+      Loading dashboard
     </div>
   );
 
-  // ── Error ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (error || !plan || !heatmap) return (
     <div className="min-h-screen bg-[#060d1f] p-8">
       <p className="text-red-400 text-sm">
@@ -207,12 +217,14 @@ export default function Dashboard() {
   const strongPreview = recommendations?.strong_topics?.slice(0, 3) ?? [];
 
   const quickStats = [
-    { label: "Avg accuracy", value: `${plan.average_accuracy.toFixed(1)}%`, color: "text-blue-400" },
-    { label: "Active days",  value: totalDays,                              color: "text-emerald-400" },
-    { label: "Day streak",   value: streak,                                 color: "text-orange-400" },
+    { label: "Quizzes", value: analytics?.total_quizzes ?? 0, color: "text-cyan-400" },
+    { label: "Avg accuracy", value: `${(analytics?.average_accuracy ?? plan.average_accuracy).toFixed(1)}%`, color: "text-blue-400" },
+    { label: "Documents", value: analytics?.documents_uploaded ?? plan.documents_available, color: "text-emerald-400" },
+    { label: "Day streak", value: streak, color: "text-orange-400" },
+    { label: "Topics", value: plan.mastery_scores.length, color: "text-indigo-400" },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div className="min-h-screen bg-[#060d1f] p-8 space-y-8">
 
@@ -220,7 +232,7 @@ export default function Dashboard() {
       <div className="pointer-events-none fixed -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-blue-600/10 blur-[120px]" />
       <div className="pointer-events-none fixed bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-indigo-700/10 blur-[90px]" />
 
-      {/* ── GREETING / IDENTITY ──────────────────────────────────────────── */}
+      {/* â”€â”€ GREETING / IDENTITY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 flex items-center gap-5 shadow-xl shadow-black/20">
         {initials && (
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-blue-500/30 shrink-0">
@@ -247,15 +259,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── STUDY PLAN ────────────────────────────────────────────────────── */}
+      {/* â”€â”€ STUDY PLAN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">🧠</span>
+          <span className="text-xl">📖</span>
           <h2 className="text-lg font-semibold text-white">Study Plan</h2>
           <span className="ml-auto text-xs text-slate-500 font-mono">
             avg accuracy
             <span className="ml-1.5 text-white font-semibold">
-              {plan.average_accuracy.toFixed(1)}%
+              {(analytics?.average_accuracy ?? plan.average_accuracy).toFixed(1)}%
             </span>
           </span>
         </div>
@@ -265,12 +277,12 @@ export default function Dashboard() {
           <div className="mb-6">
             <div className="flex justify-between text-sm text-slate-500 mb-2">
               <span>Current accuracy</span>
-              <span className="text-white">{plan.average_accuracy.toFixed(1)}%</span>
+              <span className="text-white">{(analytics?.average_accuracy ?? plan.average_accuracy).toFixed(1)}%</span>
             </div>
             <div className="h-2 w-full rounded-full bg-white/5 overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-700"
-                style={{ width: `${Math.min(plan.average_accuracy, 100)}%` }}
+                style={{ width: `${Math.min(analytics?.average_accuracy ?? plan.average_accuracy, 100)}%` }}
               />
             </div>
           </div>
@@ -290,7 +302,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* ── HEATMAP ───────────────────────────────────────────────────────── */}
+      {/* â”€â”€ HEATMAP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
 
       <section>
         <div className="flex items-center gap-2 mb-3">
@@ -371,7 +383,7 @@ export default function Dashboard() {
       </section>
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xl">🔥</span>
+          <span className="text-xl">🟩</span>
           <h2 className="text-lg font-semibold text-white">Activity Heatmap</h2>
           <span className="text-xs text-slate-500 font-mono">{currentYear}</span>
 
@@ -432,7 +444,7 @@ export default function Dashboard() {
                       {col.map((cell, di) => {
                         if (!cell) {
                           // Padding slot from the partial week before Jan 1
-                          // or after Dec 31 — rendered as inert empty space.
+                          // or after Dec 31 â€” rendered as inert empty space.
                           return (
                             <div
                               key={`pad-${wi}-${di}`}
@@ -497,3 +509,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 import { getToken } from "@/lib/auth";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const token = getToken();
@@ -88,14 +88,27 @@ export async function saveQuizResult(
   topic: string,
   score: number,
   total_questions: number,
-  student_id: number | null = null
+  student_id: number | null = null,
+  answers: QuizAnswerDetail[] = []
 ) {
   const response = await fetch(`${API_URL}/quiz/result`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ topic, score, total_questions, student_id }),
+    body: JSON.stringify({ topic, score, total_questions, student_id, answers }),
   });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Failed to save quiz result");
+  }
   return response.json();
+}
+
+export interface QuizAnswerDetail {
+  question: string;
+  selected_answer: string | null;
+  correct_answer: string;
+  is_correct: boolean;
+  explanation: string;
 }
 
 /* ===========================
@@ -597,7 +610,7 @@ export async function uploadResumeForInterview(file: File): Promise<ResumeAnalys
   formData.append("file", file);
 
   const response = await fetchWithTimeout(
-    `${API_URL}/interview/upload`,
+    `${API_URL}/interview/upload-resume`,
     {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -613,7 +626,7 @@ export async function generateInterviewQuestions(
   difficulty: InterviewDifficulty
 ): Promise<{ session_id: number; questions: InterviewQuestionItem[] }> {
   const response = await fetchWithTimeout(
-    `${API_URL}/interview/generate`,
+    `${API_URL}/interview/generate-questions`,
     {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
@@ -631,7 +644,7 @@ export async function evaluateInterviewAnswer(params: {
   question_id?: number;
 }): Promise<InterviewEvaluationResponse> {
   const response = await fetchWithTimeout(
-    `${API_URL}/interview/evaluate`,
+    `${API_URL}/interview/evaluate-answer`,
     {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
@@ -644,6 +657,20 @@ export async function evaluateInterviewAnswer(params: {
 
 export async function getInterviewHistory(): Promise<InterviewHistoryResponse> {
   const response = await fetchWithTimeout(`${API_URL}/interview/history`, {
+    headers: authHeaders(),
+  });
+  return response.json();
+}
+
+export async function getInterviewReport(sessionId?: number): Promise<InterviewSessionItem & {
+  readiness_score: number;
+  weak_skill_areas: string[];
+  recommended_topics: string[];
+}> {
+  const url = sessionId
+    ? `${API_URL}/interview/report?session_id=${sessionId}`
+    : `${API_URL}/interview/report`;
+  const response = await fetchWithTimeout(url, {
     headers: authHeaders(),
   });
   return response.json();
@@ -673,9 +700,11 @@ export interface StudentTopicMastery {
   attempts: number;
   correct_answers: number;
   accuracy: number;
+  mastery_score: number;
   mastery_level: PersistedMasteryLevel;
   last_practiced: string | null;
   created_at: string | null;
+  updated_at?: string | null;
 }
 
 export interface MasterySummary {

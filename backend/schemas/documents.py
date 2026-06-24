@@ -7,6 +7,7 @@ class UploadResponse(BaseModel):
     document_id: int
     title: str
     chunk_count: int
+    file_type: str = "pdf"
 
 
 class DocumentOut(BaseModel):

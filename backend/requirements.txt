@@ -3,8 +3,13 @@ uvicorn
 sqlalchemy
 python-jose
 passlib
+bcrypt
 google-generativeai
 langchain
 langchain-google-genai
 faiss-cpu
 python-dotenv
+python-multipart
+pypdf
+email-validator
+google-auth

@@ -23,11 +23,20 @@ def _make_llm(model: str) -> ChatGoogleGenerativeAI:
     )
 
 
-def generate_response(prompt: str) -> str | None:
+def generate_response(prompt: str, image_parts: list[dict] | None = None) -> str | None:
     for model in MODELS:
         try:
             llm = _make_llm(model)
-            response = llm.invoke(prompt)
+            if image_parts:
+                content = [{"type": "text", "text": prompt}]
+                for image in image_parts:
+                    content.append({
+                        "type": "image_url",
+                        "image_url": f"data:{image['mime_type']};base64,{image['data']}",
+                    })
+                response = llm.invoke([{"role": "user", "content": content}])
+            else:
+                response = llm.invoke(prompt)
             content = response.content.strip()
             if content:
                 if model != MODELS[0]:

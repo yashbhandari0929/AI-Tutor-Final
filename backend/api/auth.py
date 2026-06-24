@@ -51,6 +51,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         student = StudentProfile(
             user_id=user.id,
             name=payload.name,
+            email=payload.email,
+            password="",
         )
         db.add(student)
         db.commit()
@@ -185,6 +187,8 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
                 student = StudentProfile(
                     user_id=user.id,
                     name=name,
+                    email=email,
+                    password="",
                 )
                 db.add(student)
                 db.commit()
@@ -202,7 +206,7 @@ def google_auth(payload: GoogleAuthRequest, db: Session = Depends(get_db)):
     student = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).first()
     if not student:
         try:
-            student = StudentProfile(user_id=user.id, name=name)
+            student = StudentProfile(user_id=user.id, name=name, email=user.email, password="")
             db.add(student)
             db.commit()
             db.refresh(student)

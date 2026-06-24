@@ -1,4 +1,4 @@
-// LOCATION: app/(dashboard)/knowledge-base/page.tsx
+﻿// LOCATION: app/(dashboard)/knowledge-base/page.tsx
 
 "use client";
 
@@ -12,6 +12,7 @@ interface DocumentItem {
   source: string;
   uploaded_at: string;
   chunk_count: number;
+  file_type?: "pdf" | "image";
 }
 
 export default function KnowledgeBasePage() {
@@ -50,9 +51,9 @@ export default function KnowledgeBasePage() {
 
   const handleFile = async (file: File) => {
     if (!file) return;
-    if (file.type !== "application/pdf") {
+    if (!(file.type === "application/pdf" || file.type.startsWith("image/"))) {
       setUploadStatus("error");
-      setUploadMessage("Only PDF files are supported.");
+      setUploadMessage("Only PDF and image files are supported.");
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
@@ -77,7 +78,7 @@ export default function KnowledgeBasePage() {
       setUploadProgress(100);
       setUploadStatus("success");
       setUploadMessage(
-        `"${result.title}" uploaded — ${result.chunk_count} chunks indexed.`
+        `"${result.title}" uploaded â€” ${result.chunk_count} chunks indexed.`
       );
       await fetchDocuments();
     } catch (err: unknown) {
@@ -151,7 +152,7 @@ export default function KnowledgeBasePage() {
       <div>
         <h1 className="text-3xl font-bold text-white">Knowledge Base</h1>
         <p className="text-slate-500 text-sm mt-1">
-          Upload PDFs and the AI tutor will answer questions using your study material.
+          Upload PDFs and images. PDFs are indexed for retrieval, while images are stored for preview and chat attachments.
         </p>
       </div>
 
@@ -174,7 +175,7 @@ export default function KnowledgeBasePage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="application/pdf"
+          accept="application/pdf,image/png,image/jpeg,image/webp"
           className="hidden"
           onChange={onFileChange}
         />
@@ -191,7 +192,7 @@ export default function KnowledgeBasePage() {
 
         {uploading ? (
           <div className="w-full max-w-xs space-y-2">
-            <p className="text-slate-300 text-sm font-medium">Uploading & indexing…</p>
+            <p className="text-slate-300 text-sm font-medium">Uploading & indexingâ€¦</p>
             <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
               <div
                 className="h-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-300"
@@ -203,9 +204,9 @@ export default function KnowledgeBasePage() {
         ) : (
           <>
             <p className="text-slate-300 font-medium">
-              {dragging ? "Drop your PDF here" : "Drag & drop a PDF, or click to browse"}
+              {dragging ? "Drop your PDF here" : "Drag & drop a PDF or image, or click to browse"}
             </p>
-            <p className="text-slate-600 text-xs">PDF only · max 20 MB</p>
+            <p className="text-slate-600 text-xs">PDF/image · max 20 MB</p>
           </>
         )}
 
@@ -216,7 +217,7 @@ export default function KnowledgeBasePage() {
               ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
               : "bg-red-500/10 text-red-400 border border-red-500/20"
             }`}>
-            {uploadStatus === "success" ? "✓ " : "✕ "}{uploadMessage}
+            {uploadStatus === "success" ? "âœ“ " : "âœ• "}{uploadMessage}
           </div>
         )}
       </div>
@@ -238,14 +239,14 @@ export default function KnowledgeBasePage() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
             </svg>
-            Loading your documents…
+            Loading your documentsâ€¦
           </div>
         ) : docsError ? (
           <p className="text-red-400 text-sm">{docsError}</p>
         ) : documents.length === 0 ? (
           <div className="text-center py-10 space-y-2">
             <p className="text-slate-500 text-sm">No documents yet.</p>
-            <p className="text-slate-600 text-xs">Upload a PDF above to get started.</p>
+            <p className="text-slate-600 text-xs">Upload a PDF or image above to get started.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -266,7 +267,7 @@ export default function KnowledgeBasePage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-slate-200 text-sm font-medium truncate">{doc.title}</p>
                   <p className="text-slate-600 text-xs mt-0.5">
-                    {formatSize(doc.chunk_count)} · {formatDate(doc.uploaded_at)}
+                    {formatSize(doc.chunk_count)} Â· {formatDate(doc.uploaded_at)}
                   </p>
                 </div>
 
@@ -309,12 +310,13 @@ export default function KnowledgeBasePage() {
         <div className="space-y-1">
           <p className="text-blue-300 text-sm font-medium">How this works</p>
           <p className="text-slate-500 text-xs leading-relaxed">
-            Uploaded PDFs are split into chunks and indexed. When you ask the AI Tutor a question,
+            Uploaded PDFs are split into chunks and indexed. Uploaded images are stored for retrieval and preview. When you ask the AI Tutor a question,
             it searches your documents first. If relevant content is found, the answer is grounded
-            in your material — and the chat will show a <span className="text-blue-400">"Using your study material"</span> badge.
+            in your material â€” and the chat will show a <span className="text-blue-400">"Using your study material"</span> badge.
           </p>
         </div>
       </div>
     </div>
   );
 }
+

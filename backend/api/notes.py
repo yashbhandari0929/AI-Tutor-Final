@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from services.llm_service import generate_response
 from database.database import SessionLocal
-from database.models import Note
+from auth.security import decode_access_token
+from database.models import Note, StudentProfile, User
 import re
 
 router = APIRouter()
@@ -24,6 +25,26 @@ class NotesRequest(BaseModel):
     length: str
     # student_id is optional so existing callers without it don't break
     student_id: int | None = None
+
+
+def _resolve_student_id(
+    db: Session,
+    authorization: str | None,
+    fallback_student_id: int | None,
+) -> int | None:
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+        try:
+            payload = decode_access_token(token)
+            user_id = int(payload.get("sub"))
+            user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                student = db.query(StudentProfile).filter(StudentProfile.user_id == user.id).first()
+                if student:
+                    return student.id
+        except Exception:
+            pass
+    return fallback_student_id
 
 
 def markdown_to_html(text: str) -> str:
@@ -130,7 +151,11 @@ def apply_inline_styles(text: str) -> str:
 
 
 @router.post("/notes/generate")
-def generate_notes(data: NotesRequest, db: Session = Depends(get_db)):
+def generate_notes(
+    data: NotesRequest,
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
 
     try:
         prompt = f"""
@@ -163,10 +188,11 @@ Format:
 
         # ── Persist the topic to the notes table ──────────────────────────────
         # Only save if a logged-in student made this request
-        if data.student_id is not None:
+        resolved_student_id = _resolve_student_id(db, authorization, data.student_id)
+        if resolved_student_id is not None:
             try:
                 note_row = Note(
-                    student_id=data.student_id,
+                    student_id=resolved_student_id,
                     subject=data.subject,
                     topic=data.topic,
                     level=data.level,

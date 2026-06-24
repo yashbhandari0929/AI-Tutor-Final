@@ -10,6 +10,9 @@ All endpoints are JWT-protected. student_id is NEVER accepted from the
 frontend — it is always derived from the JWT via get_current_user.
 """
 
+import logging
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -26,6 +29,7 @@ from schemas.documents import (
 from services.rag_service import ingest_pdf, store_image, delete_document_and_rebuild
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
+logger = logging.getLogger(__name__)
 
 # ── Allowed MIME types ────────────────────────────────────────────────────────
 _ALLOWED_PDF_TYPES = {"application/pdf"}
@@ -126,11 +130,20 @@ async def upload_document(
                 detail="Conversation not found.",
             )
 
-    filename = file.filename or "uploaded_file"
+    filename = os.path.basename(file.filename or "uploaded_file")
     is_image = file.content_type in _ALLOWED_IMAGE_TYPES
+    file_type = "image" if is_image else "pdf"
 
     # ── Ingest ────────────────────────────────────────────────────────────────
     try:
+        logger.info(
+            "Processing %s upload filename=%s size=%s student_id=%s conversation_id=%s",
+            file_type,
+            filename,
+            len(file_bytes),
+            student.id,
+            conversation_id,
+        )
         if is_image:
             result = store_image(
                 file_bytes=file_bytes,
@@ -148,15 +161,19 @@ async def upload_document(
                 conversation_id=conversation_id,
             )
     except ValueError as exc:
+        db.rollback()
+        logger.warning("Document upload rejected filename=%s student_id=%s: %s", filename, student.id, exc)
         # ingest_pdf raises ValueError for unreadable/image-only PDFs
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         )
-    except Exception as exc:
+    except Exception:
+        db.rollback()
+        logger.exception("Document upload failed filename=%s student_id=%s", filename, student.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process document: {exc}",
+            detail="Failed to process document. Check server logs for the exact failure.",
         )
 
     return UploadResponse(
@@ -164,6 +181,7 @@ async def upload_document(
         document_id=result["document_id"],
         title=filename,
         chunk_count=result["chunk_count"],
+        file_type=file_type,
     )
 
 
@@ -238,6 +256,12 @@ def get_document_file(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Original file is not available for this document (uploaded before Phase 8).",
+        )
+    if not os.path.exists(document.file_path):
+        logger.error("Missing uploaded file document_id=%s path=%s", document.id, document.file_path)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Original uploaded file is missing from storage.",
         )
 
     return FileResponse(document.file_path, filename=document.title)

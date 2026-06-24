@@ -22,6 +22,7 @@ System dependency (for OCR fallback only):
 from __future__ import annotations
 
 import io
+import logging
 import os
 import re
 import uuid
@@ -35,6 +36,8 @@ from sqlalchemy.orm import Session
 
 from database.models import Document, DocumentChunk
 from rag.faiss_store import add_embeddings, search, rebuild
+
+logger = logging.getLogger(__name__)
 
 try:
     import pytesseract
@@ -62,10 +65,12 @@ def _save_to_disk(file_bytes: bytes, student_id: int, filename: str) -> str:
     student_dir = os.path.join(_UPLOAD_DIR, str(student_id))
     os.makedirs(student_dir, exist_ok=True)
     # Prefix with a short random token to avoid collisions on repeat filenames.
-    safe_name = f"{uuid.uuid4().hex[:8]}_{filename}"
+    safe_filename = os.path.basename(filename or "uploaded_file")
+    safe_name = f"{uuid.uuid4().hex[:8]}_{safe_filename}"
     path = os.path.join(student_dir, safe_name)
     with open(path, "wb") as f:
         f.write(file_bytes)
+    logger.info("Saved uploaded file student_id=%s path=%s bytes=%s", student_id, path, len(file_bytes))
     return path
 
 # ── Embedding model singleton ─────────────────────────────────────────────────
@@ -333,15 +338,19 @@ def ingest_pdf(
     Returns { "document_id": int, "chunk_count": int }
     """
     # ── Step 1: extract text ──────────────────────────────────────────────────
+    logger.info("Starting PDF ingestion filename=%s student_id=%s conversation_id=%s", filename, student_id, conversation_id)
     raw_text = _extract_text_from_pdf(file_bytes)
+    logger.info("Extracted PDF text filename=%s chars=%s", filename, len(raw_text))
 
     # ── Step 2: chunk ─────────────────────────────────────────────────────────
     chunks = _SPLITTER.split_text(raw_text)
     if not chunks:
         raise ValueError("PDF produced no text chunks after splitting.")
+    logger.info("Split PDF into chunks filename=%s chunk_count=%s", filename, len(chunks))
 
     # ── Step 3: embed ─────────────────────────────────────────────────────────
     embeddings = _embed(chunks)          # shape: (len(chunks), 384)
+    logger.info("Generated PDF embeddings filename=%s embedding_count=%s", filename, len(embeddings))
 
     # ── Step 4: persist Document + chunks (embedding_id filled in step 6) ─────
     document = Document(
@@ -389,6 +398,7 @@ def ingest_pdf(
     # ── Step 8: commit everything atomically ──────────────────────────────────
     db.commit()
     db.refresh(document)
+    logger.info("Completed PDF ingestion document_id=%s filename=%s chunks=%s", document.id, filename, len(chunk_rows))
 
     return {
         "document_id": document.id,
@@ -414,6 +424,7 @@ def store_image(
 
     Returns { "document_id": int, "chunk_count": 0 }
     """
+    logger.info("Storing image upload filename=%s student_id=%s conversation_id=%s", filename, student_id, conversation_id)
     document = Document(
         student_id=student_id,
         conversation_id=conversation_id,
@@ -428,6 +439,7 @@ def store_image(
 
     db.commit()
     db.refresh(document)
+    logger.info("Completed image storage document_id=%s filename=%s", document.id, filename)
 
     return {
         "document_id": document.id,
